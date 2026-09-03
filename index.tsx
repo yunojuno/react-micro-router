@@ -49,16 +49,22 @@ export class Route extends Component<RouteProps> {
   constructor(props: RouteProps) {
     super(props);
     this.onPopState = this.onPopState.bind(this);
-    routes.push(this);
   }
 
   componentDidMount() {
+    if (!routes.includes(this)) {
+      routes.push(this);
+    }
     window.addEventListener("popstate", this.onPopState);
   }
 
   componentWillUnmount() {
     window.removeEventListener("popstate", this.onPopState);
-    routes.splice(routes.indexOf(this), 1);
+
+    const routeIndex = routes.indexOf(this);
+    if (routeIndex !== -1) {
+      routes.splice(routeIndex, 1);
+    }
   }
 
   onPopState() {

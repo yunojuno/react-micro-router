@@ -1,7 +1,15 @@
 import React from "react";
-import { Route, Link, getCurrentPath, getParams, location } from "../index";
+import {
+    Route,
+    Link,
+    getCurrentPath,
+    getParams,
+    location,
+    redirect,
+    routes,
+} from "../index";
 import type { ComponentRouteProps } from "../index";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from '@testing-library/user-event';
 
 function changeURL(newPath: string) {
@@ -204,4 +212,92 @@ test("changeUrl should mark /shortlist/interested/ as active", async () => {
         expect(screen.getByText("Hello").getAttribute("class")).not.toContain("active");
         expect(screen.getByText("Hello interested").getAttribute("class")).toContain("active");
         expect(screen.getByText("Hello uninterested").getAttribute("class")).not.toContain("active");
+});
+
+test("redirect updates routes mounted in React Strict Mode", () => {
+    let unmountedUpdates = 0;
+
+    class TrackedRoute extends Route {
+        isMounted = false;
+
+        componentDidMount() {
+            super.componentDidMount();
+            this.isMounted = true;
+        }
+
+        componentWillUnmount() {
+            this.isMounted = false;
+            super.componentWillUnmount();
+        }
+
+        forceUpdate(callback?: () => void) {
+            if (!this.isMounted) {
+                unmountedUpdates += 1;
+            }
+            super.forceUpdate(callback);
+        }
+    }
+
+    window.history.replaceState({}, "", "/strict-mode/start");
+    location.path = () => window.location.pathname;
+
+    render(
+        <React.StrictMode>
+            <TrackedRoute path="/strict-mode/start" exact>
+                <p>Start route</p>
+            </TrackedRoute>
+            <TrackedRoute path="/strict-mode/end" exact>
+                <p>End route</p>
+            </TrackedRoute>
+        </React.StrictMode>
+    );
+
+    expect(screen.getByText("Start route")).toBeTruthy();
+    expect(screen.queryByText("End route")).toBeNull();
+    expect(routes).toHaveLength(2);
+
+    act(() => redirect("/strict-mode/end"));
+
+    expect(window.location.pathname).toBe("/strict-mode/end");
+    expect(screen.queryByText("Start route")).toBeNull();
+    expect(screen.getByText("End route")).toBeTruthy();
+    expect(unmountedUpdates).toBe(0);
+});
+
+test("unmount only removes a route when it is registered", () => {
+    let firstRoute: Route | null = null;
+    let secondRoute: Route | null = null;
+
+    const firstRender = render(
+        <React.StrictMode>
+            <Route path="/first" ref={(route) => {
+                if (route) {
+                    firstRoute = route;
+                }
+            }}>
+                <p>First</p>
+            </Route>
+        </React.StrictMode>
+    );
+    const secondRender = render(
+        <React.StrictMode>
+            <Route path="/second" ref={(route) => {
+                if (route) {
+                    secondRoute = route;
+                }
+            }}>
+                <p>Second</p>
+            </Route>
+        </React.StrictMode>
+    );
+
+    expect(routes).toEqual([firstRoute, secondRoute]);
+
+    routes.splice(routes.indexOf(firstRoute as Route), 1);
+    firstRender.unmount();
+
+    expect(routes).toEqual([secondRoute]);
+
+    secondRender.unmount();
+    expect(routes).toHaveLength(0);
 });
