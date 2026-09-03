@@ -264,6 +264,40 @@ test("redirect updates routes mounted in React Strict Mode", () => {
     expect(unmountedUpdates).toBe(0);
 });
 
+test("mount-time redirect updates routes in React Strict Mode", () => {
+    const pathsSeenDuringRender: string[] = [];
+
+    function RedirectOnMount() {
+        pathsSeenDuringRender.push(getCurrentPath());
+
+        React.useLayoutEffect(() => {
+            redirect("/strict-mode/mounted");
+        }, []);
+
+        return <p>Mounting route</p>;
+    }
+
+    window.history.replaceState({}, "", "/strict-mode/mounting");
+    location.path = () => window.location.pathname;
+
+    render(
+        <React.StrictMode>
+            <Route path="/strict-mode/mounting" exact>
+                <RedirectOnMount />
+            </Route>
+            <Route path="/strict-mode/mounted" exact>
+                <p>Mounted route</p>
+            </Route>
+        </React.StrictMode>
+    );
+
+    expect(pathsSeenDuringRender).toContain("/strict-mode/mounting");
+    expect(pathsSeenDuringRender).not.toContain("");
+    expect(window.location.pathname).toBe("/strict-mode/mounted");
+    expect(screen.queryByText("Mounting route")).toBeNull();
+    expect(screen.getByText("Mounted route")).toBeTruthy();
+});
+
 test("unmount only removes a route when it is registered", () => {
     const firstRender = render(
         <React.StrictMode>
