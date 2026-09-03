@@ -36,7 +36,9 @@ function _objectWithoutProperties(source, excluded) { if (source == null) return
 function _objectWithoutPropertiesLoose(source, excluded) { if (source == null) return {}; var target = {}; var sourceKeys = Object.keys(source); var key, i; for (i = 0; i < sourceKeys.length; i++) { key = sourceKeys[i]; if (excluded.indexOf(key) >= 0) continue; target[key] = source[key]; } return target; }
 const routes = exports.routes = [];
 let nextRouteOrder = 0;
+let redirectVersion = 0;
 const routeOrder = new WeakMap();
+const routeRedirectVersions = new WeakMap();
 // allow tests to override
 const location = exports.location = {
   path: () => window.location.pathname
@@ -58,6 +60,7 @@ class Route extends _react.Component {
   constructor(props) {
     super(props);
     routeOrder.set(this, nextRouteOrder++);
+    routeRedirectVersions.set(this, redirectVersion);
     this.onPopState = this.onPopState.bind(this);
   }
   componentDidMount() {
@@ -66,6 +69,10 @@ class Route extends _react.Component {
       routes.sort((first, second) => routeOrder.get(first) - routeOrder.get(second));
     }
     window.addEventListener("popstate", this.onPopState);
+    if (routeRedirectVersions.get(this) !== redirectVersion) {
+      routeRedirectVersions.set(this, redirectVersion);
+      this.forceUpdate();
+    }
   }
   componentWillUnmount() {
     window.removeEventListener("popstate", this.onPopState);
@@ -148,7 +155,11 @@ exports.Route = Route;
 function redirect(path) {
   let replace = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
   window.history[replace ? "replaceState" : "pushState"]({}, "", path);
-  routes.forEach(route => route.forceUpdate());
+  redirectVersion += 1;
+  routes.forEach(route => {
+    routeRedirectVersions.set(route, redirectVersion);
+    route.forceUpdate();
+  });
 }
 function Link(_ref) {
   let {
@@ -178,7 +189,7 @@ function Link(_ref) {
 }
 function getCurrentPath() {
   const lastRoute = routes.filter(route => isMatch(route.props.path, !!route.props.exact)).pop();
-  return lastRoute ? lastRoute.props.path : "";
+  return lastRoute ? lastRoute.props.path : location.path();
 }
 function getParams(path) {
   if (!path) {
