@@ -1,8 +1,6 @@
 "use strict";
 
 require("core-js/modules/es.object.assign.js");
-require("core-js/modules/es.weak-map.js");
-require("core-js/modules/web.dom-collections.iterator.js");
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
@@ -14,10 +12,14 @@ exports.isMatch = isMatch;
 exports.location = void 0;
 exports.redirect = redirect;
 exports.routes = void 0;
+require("core-js/modules/es.weak-map.js");
+require("core-js/modules/web.dom-collections.iterator.js");
 require("core-js/modules/es.regexp.exec.js");
 require("core-js/modules/es.regexp.test.js");
 require("core-js/modules/es.regexp.constructor.js");
 require("core-js/modules/es.regexp.to-string.js");
+require("core-js/modules/es.array.includes.js");
+require("core-js/modules/es.array.sort.js");
 require("core-js/modules/es.promise.js");
 require("core-js/modules/es.string.replace.js");
 require("core-js/modules/es.string.match.js");
@@ -33,6 +35,8 @@ function _extends() { _extends = Object.assign ? Object.assign.bind() : function
 function _objectWithoutProperties(source, excluded) { if (source == null) return {}; var target = _objectWithoutPropertiesLoose(source, excluded); var key, i; if (Object.getOwnPropertySymbols) { var sourceSymbolKeys = Object.getOwnPropertySymbols(source); for (i = 0; i < sourceSymbolKeys.length; i++) { key = sourceSymbolKeys[i]; if (excluded.indexOf(key) >= 0) continue; if (!Object.prototype.propertyIsEnumerable.call(source, key)) continue; target[key] = source[key]; } } return target; }
 function _objectWithoutPropertiesLoose(source, excluded) { if (source == null) return {}; var target = {}; var sourceKeys = Object.keys(source); var key, i; for (i = 0; i < sourceKeys.length; i++) { key = sourceKeys[i]; if (excluded.indexOf(key) >= 0) continue; target[key] = source[key]; } return target; }
 const routes = exports.routes = [];
+let nextRouteOrder = 0;
+const routeOrder = new WeakMap();
 // allow tests to override
 const location = exports.location = {
   path: () => window.location.pathname
@@ -53,15 +57,22 @@ function isMatch(path) {
 class Route extends _react.Component {
   constructor(props) {
     super(props);
+    routeOrder.set(this, nextRouteOrder++);
     this.onPopState = this.onPopState.bind(this);
-    routes.push(this);
   }
   componentDidMount() {
+    if (!routes.includes(this)) {
+      routes.push(this);
+      routes.sort((first, second) => routeOrder.get(first) - routeOrder.get(second));
+    }
     window.addEventListener("popstate", this.onPopState);
   }
   componentWillUnmount() {
     window.removeEventListener("popstate", this.onPopState);
-    routes.splice(routes.indexOf(this), 1);
+    const routeIndex = routes.indexOf(this);
+    if (routeIndex !== -1) {
+      routes.splice(routeIndex, 1);
+    }
   }
   onPopState() {
     this.forceUpdate();
@@ -96,7 +107,7 @@ class Route extends _react.Component {
             return child;
           }
           return /*#__PURE__*/(0, _react.cloneElement)(
-          // @ts-expect-error - no overload types.
+          // @ts-expect-error - no overload types.npm run bu
           child, {
             key: "child".concat(i),
             route: {
