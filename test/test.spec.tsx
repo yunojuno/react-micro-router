@@ -265,35 +265,27 @@ test("redirect updates routes mounted in React Strict Mode", () => {
 });
 
 test("unmount only removes a route when it is registered", () => {
-    let firstRoute: Route | null = null;
-    let secondRoute: Route | null = null;
-
     const firstRender = render(
         <React.StrictMode>
-            <Route path="/first" ref={(route) => {
-                if (route) {
-                    firstRoute = route;
-                }
-            }}>
+            <Route path="/first">
                 <p>First</p>
             </Route>
         </React.StrictMode>
     );
+    const firstRoute = routes[0];
+
     const secondRender = render(
         <React.StrictMode>
-            <Route path="/second" ref={(route) => {
-                if (route) {
-                    secondRoute = route;
-                }
-            }}>
+            <Route path="/second">
                 <p>Second</p>
             </Route>
         </React.StrictMode>
     );
+    const secondRoute = routes.find((route) => route !== firstRoute);
 
     expect(routes).toEqual([firstRoute, secondRoute]);
 
-    routes.splice(routes.indexOf(firstRoute as Route), 1);
+    routes.splice(routes.indexOf(firstRoute), 1);
     firstRender.unmount();
 
     expect(routes).toEqual([secondRoute]);

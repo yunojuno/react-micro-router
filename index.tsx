@@ -10,6 +10,7 @@ import CSSTransition, {
 import TransitionGroup from "react-transition-group/TransitionGroup";
 
 export const routes: Route[] = [];
+let nextRouteOrder = 0;
 
 export type ComponentRouteProps = {
   path: string;
@@ -46,14 +47,21 @@ type RouteProps = {
 };
 
 export class Route extends Component<RouteProps> {
+  private readonly registrationOrder: number;
+
   constructor(props: RouteProps) {
     super(props);
+    this.registrationOrder = nextRouteOrder++;
     this.onPopState = this.onPopState.bind(this);
   }
 
   componentDidMount() {
     if (!routes.includes(this)) {
       routes.push(this);
+      routes.sort(
+        (first, second) =>
+          first.registrationOrder - second.registrationOrder
+      );
     }
     window.addEventListener("popstate", this.onPopState);
   }
