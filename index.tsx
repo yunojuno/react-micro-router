@@ -11,6 +11,7 @@ import TransitionGroup from "react-transition-group/TransitionGroup";
 
 export const routes: Route[] = [];
 let nextRouteOrder = 0;
+const routeOrder = new WeakMap<Route, number>();
 
 export type ComponentRouteProps = {
   path: string;
@@ -47,11 +48,9 @@ type RouteProps = {
 };
 
 export class Route extends Component<RouteProps> {
-  private readonly registrationOrder: number;
-
   constructor(props: RouteProps) {
     super(props);
-    this.registrationOrder = nextRouteOrder++;
+    routeOrder.set(this, nextRouteOrder++);
     this.onPopState = this.onPopState.bind(this);
   }
 
@@ -60,7 +59,7 @@ export class Route extends Component<RouteProps> {
       routes.push(this);
       routes.sort(
         (first, second) =>
-          first.registrationOrder - second.registrationOrder
+          routeOrder.get(first)! - routeOrder.get(second)!
       );
     }
     window.addEventListener("popstate", this.onPopState);
