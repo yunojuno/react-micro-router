@@ -10,6 +10,10 @@ import CSSTransition, {
 import TransitionGroup from "react-transition-group/TransitionGroup";
 
 export const routes: Route[] = [];
+let nextRouteOrder = 0;
+let redirectVersion = 0;
+const routeOrder = new WeakMap<Route, number>();
+const routeRedirectVersions = new WeakMap<Route, number>();
 
 export type ComponentRouteProps = {
   path: string;
@@ -48,17 +52,34 @@ type RouteProps = {
 export class Route extends Component<RouteProps> {
   constructor(props: RouteProps) {
     super(props);
+    routeOrder.set(this, nextRouteOrder++);
+    routeRedirectVersions.set(this, redirectVersion);
     this.onPopState = this.onPopState.bind(this);
-    routes.push(this);
   }
 
   componentDidMount() {
+    if (!routes.includes(this)) {
+      routes.push(this);
+      routes.sort(
+        (first, second) =>
+          routeOrder.get(first)! - routeOrder.get(second)!
+      );
+    }
     window.addEventListener("popstate", this.onPopState);
+
+    if (routeRedirectVersions.get(this) !== redirectVersion) {
+      routeRedirectVersions.set(this, redirectVersion);
+      this.forceUpdate();
+    }
   }
 
   componentWillUnmount() {
     window.removeEventListener("popstate", this.onPopState);
-    routes.splice(routes.indexOf(this), 1);
+
+    const routeIndex = routes.indexOf(this);
+    if (routeIndex !== -1) {
+      routes.splice(routeIndex, 1);
+    }
   }
 
   onPopState() {
@@ -142,7 +163,11 @@ export class Route extends Component<RouteProps> {
 
 export function redirect(path: string, replace = false): void {
   window.history[replace ? "replaceState" : "pushState"]({}, "", path);
-  routes.forEach((route) => route.forceUpdate());
+  redirectVersion += 1;
+  routes.forEach((route) => {
+    routeRedirectVersions.set(route, redirectVersion);
+    route.forceUpdate();
+  });
 }
 
 type LinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
@@ -193,7 +218,7 @@ export function getCurrentPath() {
     .filter((route) => isMatch(route.props.path, !!route.props.exact))
     .pop();
 
-  return lastRoute ? lastRoute.props.path : "";
+  return lastRoute ? lastRoute.props.path : location.path();
 }
 
 export function getParams(path: string | null) {
